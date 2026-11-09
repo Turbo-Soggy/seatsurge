@@ -1,0 +1,23 @@
+# Ephemeral "dev" stage: a throwaway kind cluster inside the GitHub Actions runner.
+global:
+  environment: dev
+ingress:
+  enabled: false
+components:
+  web:
+    autoscaling: { enabled: false }
+    replicas: 1
+  inventory:
+    autoscaling: { enabled: false }
+    replicas: 1
+  checkout:
+    autoscaling: { enabled: false }
+    replicas: 1
+podDisruptionBudget:
+  enabled: false
+config:
+  allowReset: true
+# No Prometheus Operator CRDs in the throwaway cluster.
+monitoring:
+  serviceMonitor: false
+  prometheusRules: false

@@ -1,0 +1,7 @@
+SeatSurge {{ include "seatsurge.tag" . }} deployed to {{ .Release.Namespace }} ({{ .Values.global.environment }}).
+
+{{- if .Values.ingress.enabled }}
+  App:  http://{{ .Values.ingress.host }}
+{{- end }}
+  Pods: kubectl -n {{ .Release.Namespace }} get pods,hpa
+  Test: helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
