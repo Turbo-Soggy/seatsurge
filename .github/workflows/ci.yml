@@ -212,8 +212,13 @@ jobs:
           build-args: APP_VERSION=${{ env.APP_VERSION }}
           cache-from: type=gha,scope=${{ matrix.service }}
       - name: Summary
+        env:
+          SERVICE: ${{ matrix.service }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          echo "### 🐳 ${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### 🐳 $SERVICE"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
