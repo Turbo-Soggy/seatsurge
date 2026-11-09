@@ -57,7 +57,6 @@ jobs:
       TAG: ${{ needs.prepare.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ needs.prepare.outputs.sha }}" }
       - uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
         with: { cluster_name: dev }
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -111,7 +110,6 @@ jobs:
       TAG: ${{ needs.prepare.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ needs.prepare.outputs.sha }}" }
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
@@ -150,7 +148,6 @@ jobs:
       TAG: ${{ needs.prepare.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ needs.prepare.outputs.sha }}" }
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
