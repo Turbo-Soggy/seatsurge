@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in SeatSurge is broken
+labels: [bug]
+body:
+  - type: dropdown
+    id: service
+    attributes:
+      label: Affected service
+      options: [web, inventory, checkout, pipeline / infra]
+    validations: { required: true }
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options: [local (docker compose), dev, staging, production]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open the seat map\n2. Hold FL1-A1\n3. …"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs (Grafana → Explore → Loki)
+      render: shell

@@ -1,0 +1,15 @@
+# Code owners are requested for review automatically when a PR touches their area.
+# Order matters: the last matching pattern wins.
+
+*                               @Turbo-Soggy
+
+# Application services
+/services/inventory/            @Turbo-Soggy
+/services/checkout/             @Turbo-Soggy
+/services/web/                  @Turbo-Soggy
+
+# Delivery, platform and security-sensitive paths
+/.github/workflows/             @Turbo-Soggy
+/deploy/helm/                   @Turbo-Soggy
+/infra/terraform/               @Turbo-Soggy
+/deploy/helm/seatsurge/values-prod.yaml  @Turbo-Soggy

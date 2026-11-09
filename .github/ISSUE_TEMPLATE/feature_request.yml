@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an improvement to SeatSurge
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / user story
+      placeholder: "As a fan, I want … so that …"
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: "- [ ] …"
+    validations: { required: true }

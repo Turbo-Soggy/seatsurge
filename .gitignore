@@ -1,0 +1,39 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Test / tool output
+junit.xml
+*.sarif
+loadtest/results/
+
+# Terraform: state and secrets never go in git
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+infra/terraform/**/kubeconfig
+
+# Sealed Secrets private key backup (keep it somewhere safe, NOT here)
+sealing-key*.yaml
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+.env
