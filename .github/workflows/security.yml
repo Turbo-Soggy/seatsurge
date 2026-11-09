@@ -25,7 +25,7 @@ jobs:
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 \
             git /repo --config /repo/.gitleaks.toml --redact --verbose \
             --report-format sarif --report-path /repo/gitleaks.sarif
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && github.event_name != 'pull_request'
         with: { sarif_file: gitleaks.sarif, category: gitleaks }
 
@@ -42,7 +42,7 @@ jobs:
           config_file: .checkov.yaml
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && github.event_name != 'pull_request'
         with: { sarif_file: checkov.sarif, category: checkov }
 
@@ -59,6 +59,6 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-fs.sarif
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && github.event_name != 'pull_request'
         with: { sarif_file: trivy-fs.sarif, category: trivy-dependencies }
