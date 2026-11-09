@@ -49,7 +49,13 @@ export const options = {
 export function setup() {
   const venue = http.get(`${BASE_URL}/api/inventory/events/${EVENT}`, params).json();
   if (__ENV.RESET === 'true') {
-    http.post(`${BASE_URL}/api/inventory/events/${EVENT}/reset`, null, params);
+    // Reset both stores: orders first, then seat holds and the sold set. Resetting only
+    // inventory leaves old orders in Postgres, so every new checkout would hit 409.
+    const orders = http.post(`${BASE_URL}/api/checkout/events/${EVENT}/reset`, null, params);
+    const seats = http.post(`${BASE_URL}/api/inventory/events/${EVENT}/reset`, null, params);
+    if (orders.status !== 204 || seats.status !== 204) {
+      throw new Error(`reset failed: checkout ${orders.status}, inventory ${seats.status}`);
+    }
   }
   // Fans want the floor first, then the lower bowl.
   const weight = { FL: 12, LB: 3, UB: 1 };

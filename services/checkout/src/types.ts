@@ -36,6 +36,10 @@ export interface SalesStats {
   revenue: number;
 }
 
+export interface EventSales extends SalesStats {
+  eventId: string;
+}
+
 export class SeatAlreadySoldError extends Error {
   constructor() {
     super('seat already sold');
@@ -47,6 +51,10 @@ export interface OrderRepository {
   deleteOrder(code: string): Promise<void>;
   getOrder(code: string): Promise<Order | null>;
   stats(eventId: string): Promise<SalesStats>;
+  /** Sales totals for every event, used by the business metrics gauges. */
+  salesByEvent(): Promise<EventSales[]>;
+  /** Deletes every order of an event and returns how many were removed. */
+  resetEvent(eventId: string): Promise<number>;
   ping(): Promise<void>;
 }
 

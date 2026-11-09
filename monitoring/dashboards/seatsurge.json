@@ -47,9 +47,9 @@
         },
         "enable": true,
         "iconColor": "#22d3ee",
-        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"$namespace\"}[1m]) > 0",
+        "expr": "max by (replicaset) (time() - kube_replicaset_created{namespace=\"$namespace\"}) < 60",
         "step": "30s",
-        "titleFormat": "Rollout: {{deployment}}"
+        "titleFormat": "Rollout: {{replicaset}}"
       }
     ]
   },
@@ -189,7 +189,7 @@
       "id": 4,
       "type": "stat",
       "title": "Box office (₹)",
-      "description": "",
+      "description": "Confirmed revenue read from Postgres at scrape time. Every checkout pod reports the same value, hence max().",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -203,7 +203,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(seatsurge_revenue_inr_total{namespace=\"$namespace\"})",
+          "expr": "max(seatsurge_box_office_inr{namespace=\"$namespace\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
