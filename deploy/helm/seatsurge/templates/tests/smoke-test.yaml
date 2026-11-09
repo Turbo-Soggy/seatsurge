@@ -1,0 +1,37 @@
+{{- $fullname := include "seatsurge.fullname" . -}}
+# `helm test <release>` runs this pod: it books a seat end to end through the services.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $fullname }}-smoke-test
+  labels:
+    {{- include "seatsurge.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 100
+    seccompProfile: { type: RuntimeDefault }
+  containers:
+    - name: smoke
+      image: {{ .Values.smokeTest.image }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: { drop: [ALL] }
+      command: [sh, -ec]
+      args:
+        - |
+          WEB=http://{{ $fullname }}-web:{{ .Values.components.web.port }}
+          INV=http://{{ $fullname }}-inventory:{{ .Values.components.inventory.port }}
+          CHK=http://{{ $fullname }}-checkout:{{ .Values.components.checkout.port }}
+          echo "1/5 web is serving";      curl -fsS $WEB/healthz
+          echo "2/5 inventory ready";     curl -fsS $INV/readyz
+          echo "3/5 checkout ready";      curl -fsS $CHK/readyz
+          echo "4/5 venue via web proxy"; curl -fsS $WEB/api/inventory/events | grep -q neon-atlas-blr
+          echo "5/5 metrics exposed";     curl -fsS $INV/metrics | grep -q seatsurge_http_requests_total
+          echo "SMOKE TEST PASSED"

@@ -1,0 +1,105 @@
+# Default values for the SeatSurge chart. Environment files (values-*.yaml) override these.
+
+global:
+  environment: dev
+  # Registry/owner prefix for images, e.g. ghcr.io/<github-user>. Empty = local images (kind load).
+  imageRegistry: ""
+  # Image tag for all three services. Empty = Chart.appVersion.
+  imageTag: ""
+  imagePullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: traefik
+  host: seatsurge.localhost
+
+# Zero-downtime rolling updates: bring a new pod up before taking an old one down.
+rollingUpdate:
+  maxSurge: 1
+  maxUnavailable: 0
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+components:
+  web:
+    image: seatsurge-web
+    port: 8080
+    replicas: 2
+    metrics: false
+    probes:
+      liveness: /healthz
+      readiness: /healthz
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 200m, memory: 64Mi }
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4, targetCPU: 70 }
+    writablePaths: [/tmp, /etc/nginx/conf.d]
+
+  inventory:
+    image: seatsurge-inventory
+    port: 8000
+    replicas: 2
+    metrics: true
+    probes:
+      liveness: /healthz
+      readiness: /readyz
+    resources:
+      requests: { cpu: 100m, memory: 96Mi }
+      limits: { cpu: 500m, memory: 256Mi }
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 60 }
+    writablePaths: [/tmp]
+
+  checkout:
+    image: seatsurge-checkout
+    port: 3000
+    replicas: 2
+    metrics: true
+    probes:
+      liveness: /healthz
+      readiness: /readyz
+    resources:
+      requests: { cpu: 100m, memory: 96Mi }
+      limits: { cpu: 500m, memory: 256Mi }
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 8, targetCPU: 60 }
+    writablePaths: [/tmp]
+
+# Non-secret application configuration (rendered into a ConfigMap).
+config:
+  # Seat-hold policy. The web UI reads both values from GET /events/{id}, so tuning them needs no front-end change.
+  holdTtlSeconds: 90
+  maxSeatsPerHold: 6
+  paymentFailureRate: "0.02"
+  allowReset: false
+
+redis:
+  enabled: true
+  image: redis:7.4-alpine
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+postgres:
+  enabled: true
+  image: postgres:17-alpine
+  user: seatsurge
+  database: seatsurge
+  storage: 1Gi
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+# Database password handling:
+#  sealed=false -> chart generates a random password once and keeps it (dev / CI)
+#  sealed=true  -> a SealedSecret encrypted with kubeseal is committed per environment
+secrets:
+  sealed: false
+  encryptedPostgresPassword: ""
+
+monitoring:
+  serviceMonitor: true
+  prometheusRules: true
+
+smokeTest:
+  image: curlimages/curl:8.16.0

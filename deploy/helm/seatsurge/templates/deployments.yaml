@@ -1,0 +1,182 @@
+{{- $root := . -}}
+{{- $fullname := include "seatsurge.fullname" . -}}
+{{- range $name, $c := .Values.components }}
+{{- $ctx := dict "root" $root "name" $name "component" $c }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- include "seatsurge.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  {{- if not $c.autoscaling.enabled }}
+  replicas: {{ $c.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ $root.Values.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ $root.Values.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "seatsurge.selectorLabels" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "seatsurge.selectorLabels" $ctx | nindent 8 }}
+        app.kubernetes.io/version: {{ include "seatsurge.tag" $root | quote }}
+      annotations:
+        checksum/config: {{ include (print $root.Template.BasePath "/configmap.yaml") $root | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "seatsurge.selectorLabels" $ctx | nindent 14 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "seatsurge.image" $ctx }}
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $c.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ $fullname }}-config
+          env:
+            - name: APP_VERSION
+              value: {{ include "seatsurge.tag" $root | quote }}
+            {{- if eq $name "web" }}
+            - name: INVENTORY_UPSTREAM
+              value: "{{ $fullname }}-inventory.{{ $root.Release.Namespace }}.svc.cluster.local:{{ $root.Values.components.inventory.port }}"
+            - name: CHECKOUT_UPSTREAM
+              value: "{{ $fullname }}-checkout.{{ $root.Release.Namespace }}.svc.cluster.local:{{ $root.Values.components.checkout.port }}"
+            - name: DNS_RESOLVER
+              value: kube-dns.kube-system.svc.cluster.local
+            {{- end }}
+            {{- if eq $name "inventory" }}
+            - name: REDIS_URL
+              value: "redis://{{ $fullname }}-redis:6379/0"
+            {{- end }}
+            {{- if eq $name "checkout" }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "seatsurge.secretName" $root }}
+                  key: password
+            - name: DATABASE_URL
+              value: "postgres://{{ $root.Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ $fullname }}-postgres:5432/{{ $root.Values.postgres.database }}"
+            - name: INVENTORY_URL
+              value: "http://{{ $fullname }}-inventory:{{ $root.Values.components.inventory.port }}"
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: {{ $c.probes.readiness }}, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: {{ $c.probes.liveness }}, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            # Give the ingress time to stop routing to this pod before it shuts down.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            {{- range $i, $p := $c.writablePaths }}
+            - name: scratch-{{ $i }}
+              mountPath: {{ $p }}
+            {{- end }}
+      volumes:
+        {{- range $i, $p := $c.writablePaths }}
+        - name: scratch-{{ $i }}
+          emptyDir: {}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- include "seatsurge.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+    seatsurge.io/metrics: {{ $c.metrics | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "seatsurge.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $c.port }}
+      targetPort: http
+{{- if $c.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- include "seatsurge.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $fullname }}-{{ $name }}
+  minReplicas: {{ $c.autoscaling.minReplicas }}
+  maxReplicas: {{ $c.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $c.autoscaling.targetCPU }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 90
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+{{- end }}
+{{- if $root.Values.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- include "seatsurge.labels" $root | nindent 4 }}
+spec:
+  minAvailable: {{ $root.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "seatsurge.selectorLabels" $ctx | nindent 6 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,13 @@
+# Production: full autoscaling range. The DB password is a SealedSecret (see docs/secrets.md).
+global:
+  environment: prod
+ingress:
+  host: seatsurge.localhost
+config:
+  # Reset is enabled only so the classroom demo can be replayed; a real launch would set false.
+  allowReset: true
+secrets:
+  sealed: true
+  # Encrypted with: kubeseal --raw --namespace seatsurge-prod --name seatsurge-postgres
+  # Only the Sealed Secrets controller in the cluster can decrypt this value.
+  encryptedPostgresPassword: AgArt3DXF3QE4aDaqsAMGw0bwAPboiZT9vScbeL3t7SSGxEh8SiGSco/jzFcUSVeCvMTZ6n0SUHM84Ji7II7/wd0107mov5M/tvjStK6k72hF82Dl1kuJkQy5hPKBX8lDvoDMXPFGKnn/d4XcF4YSsM1MtA03BxVLNuw5KSyh9yOEhKxP3TqgsGOyzqYoxA935E7v2Nx3LGbrolyK6PeIn9sdSbYXWwrqBbcWGOADlZE++HU77IlftaULPwtqpisCxNcU1+JuNIxty61nY72eh4Cc5LJexr0gmSI2sVRnCJYesnLo5xWO424G1wXM4OlB5r4Aal3jArtWB65+/u93gnmfx3FdxaEinls//8CqqImDWyYpErchrDZFwxrx5XeD95l6aD1Q8nhvZBbY2boZtfK8zWSqBRCwsTosnqOdgutTNSnpdrwSepGoNGd4o3jKSbbywMS0JzF+q0xYjR3Nqt/eTD4yOkiaVz7o9Gb1NSLy6KBSbo5QVJovfyzVNap5WMPqk9/j5d4Arp1IjJoUa69cwa3/kTic5sbUHAEA2KzR4rESpByRCO1cOepaa0iWMSWdi29RTSgSCEYkVpLViPnFk+b5wNIxXcCyC6i0VAyVAUBibGr1+2711to387pJMGAsWMOJJAJKDRVNhNnrQ/kVJaAT9yh+LG42kwwQ0J4UvFEEbRqclOgbz47SSu90+N0p8SpldC/NwyK8ONsNy9n5sF2DcEVwmygtXkLRrPE3w==
