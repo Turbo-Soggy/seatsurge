@@ -104,7 +104,8 @@ jobs:
       url: http://staging.seatsurge.localhost
     defaults:
       run:
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -eo pipefail {0}'
+        # Git Bash: the runner start script puts C:/Program Files/Git/bin first on PATH.
+        shell: bash
     env:
       REGISTRY: ${{ needs.prepare.outputs.registry }}
       TAG: ${{ needs.prepare.outputs.tag }}
@@ -142,7 +143,8 @@ jobs:
       url: http://seatsurge.localhost
     defaults:
       run:
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -eo pipefail {0}'
+        # Git Bash: the runner start script puts C:/Program Files/Git/bin first on PATH.
+        shell: bash
     env:
       REGISTRY: ${{ needs.prepare.outputs.registry }}
       TAG: ${{ needs.prepare.outputs.tag }}
