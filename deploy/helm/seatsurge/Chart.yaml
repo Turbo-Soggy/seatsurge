@@ -1,0 +1,10 @@
+apiVersion: v2
+name: seatsurge
+description: SeatSurge flash-sale ticketing platform (web, inventory, checkout, Redis, Postgres)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords: [ticketing, microservices, devops]
+home: https://github.com/seatsurge/seatsurge
+maintainers:
+  - name: SeatSurge team

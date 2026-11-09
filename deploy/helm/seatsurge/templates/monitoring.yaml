@@ -1,0 +1,86 @@
+{{- $ns := .Release.Namespace -}}
+{{- if .Values.monitoring.serviceMonitor }}
+# Prometheus scrapes /metrics on every Service labelled seatsurge.io/metrics=true
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "seatsurge.fullname" . }}
+  labels:
+    {{- include "seatsurge.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      seatsurge.io/metrics: "true"
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+{{- end }}
+{{- if .Values.monitoring.prometheusRules }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "seatsurge.fullname" . }}-alerts
+  labels:
+    {{- include "seatsurge.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: seatsurge.slo
+      rules:
+        - alert: SeatSurgeHighErrorRate
+          expr: |
+            sum(rate(seatsurge_http_requests_total{namespace="{{ $ns }}", status=~"5.."}[2m]))
+              / sum(rate(seatsurge_http_requests_total{namespace="{{ $ns }}"}[2m])) > 0.05
+          for: 2m
+          labels: { severity: critical, team: seatsurge }
+          annotations:
+            summary: "More than 5% of requests are failing in {{ $ns }}"
+            runbook_url: "https://github.com/seatsurge/seatsurge/blob/main/docs/runbook.md#high-error-rate"
+        - alert: SeatSurgeHighLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(seatsurge_http_request_duration_seconds_bucket{namespace="{{ $ns }}"}[2m]))) > 0.5
+          for: 2m
+          labels: { severity: warning, team: seatsurge }
+          annotations:
+            summary: "p95 latency above 500ms in {{ $ns }}"
+            runbook_url: "https://github.com/seatsurge/seatsurge/blob/main/docs/runbook.md#high-latency"
+        - alert: SeatSurgeTargetDown
+          expr: up{namespace="{{ $ns }}", service=~".*-(inventory|checkout)"} == 0
+          for: 1m
+          labels: { severity: critical, team: seatsurge }
+          annotations:
+            summary: {{ `"{{ $labels.pod }} is not responding to Prometheus scrapes"` }}
+    - name: seatsurge.business
+      rules:
+        - alert: SeatSurgeTicketFrenzy
+          expr: |
+            sum(rate(seatsurge_seat_hold_attempts_total{namespace="{{ $ns }}", result="conflict"}[1m]))
+              / sum(rate(seatsurge_seat_hold_attempts_total{namespace="{{ $ns }}"}[1m])) > 0.3
+          for: 1m
+          labels: { severity: info, team: seatsurge }
+          annotations:
+            summary: "Over 30% of seat-hold attempts are colliding: the drop is hot"
+        - alert: SeatSurgeSoldOut
+          expr: max(seatsurge_seats_available{namespace="{{ $ns }}"}) == 0
+          for: 1m
+          labels: { severity: info, team: seatsurge }
+          annotations:
+            summary: "Every seat is sold or held"
+    - name: seatsurge.kubernetes
+      rules:
+        - alert: SeatSurgeHPAMaxedOut
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="{{ $ns }}"}
+              >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="{{ $ns }}"}
+          for: 3m
+          labels: { severity: warning, team: seatsurge }
+          annotations:
+            summary: {{ `"HPA {{ $labels.horizontalpodautoscaler }} is at max replicas; add capacity"` }}
+        - alert: SeatSurgePodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace="{{ $ns }}"}[10m]) > 2
+          labels: { severity: warning, team: seatsurge }
+          annotations:
+            summary: {{ `"{{ $labels.pod }} restarted more than twice in 10 minutes"` }}
+{{- end }}

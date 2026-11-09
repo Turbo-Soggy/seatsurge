@@ -1,0 +1,12 @@
+# Staging: production-like, smaller autoscaling ceiling, demo reset allowed.
+global:
+  environment: staging
+ingress:
+  host: staging.seatsurge.localhost
+components:
+  inventory:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4, targetCPU: 60 }
+  checkout:
+    autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4, targetCPU: 60 }
+config:
+  allowReset: true
