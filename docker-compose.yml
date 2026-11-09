@@ -1,0 +1,62 @@
+# Local development stack: `docker compose up --build` then open http://localhost:8080
+name: seatsurge
+
+x-version: &version
+  APP_VERSION: ${APP_VERSION:-dev}
+
+services:
+  web:
+    build:
+      context: ./services/web
+      args: *version
+    image: seatsurge-web:local
+    ports: ["8080:8080"]
+    depends_on: [inventory, checkout]
+
+  inventory:
+    build:
+      context: ./services/inventory
+      args: *version
+    image: seatsurge-inventory:local
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      HOLD_TTL_SECONDS: "120"
+      ALLOW_RESET: "true"
+    ports: ["8000:8000"]
+    depends_on:
+      redis: { condition: service_healthy }
+
+  checkout:
+    build:
+      context: ./services/checkout
+      args: *version
+    image: seatsurge-checkout:local
+    environment:
+      DATABASE_URL: postgres://seatsurge:${POSTGRES_PASSWORD:-localdev}@postgres:5432/seatsurge
+      INVENTORY_URL: http://inventory:8000
+      PAYMENT_FAILURE_RATE: "0.02"
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: seatsurge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
+      POSTGRES_DB: seatsurge
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seatsurge"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
