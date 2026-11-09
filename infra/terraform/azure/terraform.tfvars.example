@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars (git-ignored) and adjust.
+# subscription_id        = "00000000-0000-0000-0000-000000000000"
+environment            = "prod"
+location               = "centralindia"
+app_node_min           = 1
+app_node_max           = 5
+admin_group_object_ids = []
