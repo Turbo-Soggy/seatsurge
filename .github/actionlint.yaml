@@ -1,0 +1,3 @@
+# Custom label of the self-hosted runner that deploys staging and production.
+self-hosted-runner:
+  labels: [seatsurge]

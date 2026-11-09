@@ -1,0 +1,224 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Stage 1 — lint, static analysis and unit tests (one job per service)
+  # ---------------------------------------------------------------------------
+  inventory:
+    name: inventory · lint & test (Python)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/inventory } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/inventory/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Static analysis (ruff lint + format check)
+        run: ruff check --output-format=github . && ruff format --check .
+      - name: Unit tests + coverage
+        run: pytest
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "### inventory coverage: $(coverage report --format=total)% lines" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-inventory
+          path: |
+            services/inventory/junit.xml
+            services/inventory/coverage.xml
+
+  node-services:
+    name: ${{ matrix.service }} · lint & test (TypeScript)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [checkout, web]
+    defaults: { run: { working-directory: "services/${{ matrix.service }}" } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+      - run: npm ci
+      - name: Static analysis (lint)
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests + coverage
+        run: npm test
+      - name: Build
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.service }}
+          path: |
+            services/${{ matrix.service }}/junit.xml
+            services/${{ matrix.service }}/coverage/cobertura-coverage.xml
+      - uses: actions/upload-artifact@v4
+        if: matrix.service == 'web'
+        with:
+          name: web-dist
+          path: services/web/dist
+
+  infra-lint:
+    name: Dockerfiles · Helm · Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+      - name: Lint Dockerfiles (hadolint)
+        run: |
+          for f in services/*/Dockerfile; do
+            echo "::group::$f"
+            docker run --rm -i -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml" hadolint/hadolint:v2.12.0 < "$f"
+            echo "::endgroup::"
+          done
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Helm lint + render every environment
+        run: |
+          for env in dev staging prod; do
+            helm lint deploy/helm/seatsurge -f deploy/helm/seatsurge/values-$env.yaml
+            helm template ss deploy/helm/seatsurge -n seatsurge-$env -f deploy/helm/seatsurge/values-$env.yaml > /dev/null
+          done
+      - name: Package Helm chart
+        run: helm package deploy/helm/seatsurge -d dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: dist/*.tgz
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Terraform fmt + validate
+        run: |
+          terraform fmt -check -recursive infra/terraform
+          for dir in infra/terraform/local infra/terraform/azure; do
+            terraform -chdir=$dir init -backend=false -input=false
+            terraform -chdir=$dir validate
+          done
+
+  # ---------------------------------------------------------------------------
+  # Stage 2 — build images, scan them, generate SBOMs, push to GHCR
+  # ---------------------------------------------------------------------------
+  images:
+    name: image · ${{ matrix.service }}
+    needs: [inventory, node-services, infra-lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [web, inventory, checkout]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lowercase image prefix
+        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/seatsurge-${{ matrix.service }}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Version string
+        run: echo "APP_VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('sha-{0}', github.sha) }}" | cut -c1-24 >> "$GITHUB_ENV"
+      - name: Build (multi-stage, layer cache)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: services/${{ matrix.service }}
+          load: true
+          tags: ${{ env.IMAGE }}:scan
+          build-args: APP_VERSION=${{ env.APP_VERSION }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Vulnerability scan (Trivy) — fail on fixable CRITICAL
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0, pinned by SHA
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Vulnerability report (SARIF → Security tab)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0, pinned by SHA
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+          skip-setup-trivy: true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.event_name != 'pull_request'
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-${{ matrix.service }}
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}:scan
+          format: spdx-json
+          output-file: sbom-${{ matrix.service }}.spdx.json
+          upload-artifact: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ env.APP_VERSION }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+      - name: Summary
+        env:
+          SERVICE: ${{ matrix.service }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "### 🐳 $SERVICE"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
