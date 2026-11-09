@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---- Stage 1: install deps (cached on lockfile) ----
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
