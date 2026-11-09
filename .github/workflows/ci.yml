@@ -167,7 +167,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       - name: Vulnerability scan (Trivy) — fail on fixable CRITICAL
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0, pinned by SHA
         with:
           image-ref: ${{ env.IMAGE }}:scan
           severity: CRITICAL
@@ -175,7 +175,7 @@ jobs:
           exit-code: "1"
       - name: Vulnerability report (SARIF → Security tab)
         if: always()
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0, pinned by SHA
         with:
           image-ref: ${{ env.IMAGE }}:scan
           format: sarif

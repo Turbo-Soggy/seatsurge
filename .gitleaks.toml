@@ -4,6 +4,11 @@ title = "SeatSurge gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "SealedSecret ciphertext is encrypted with the cluster key and safe to commit"
-paths = ['''deploy/helm/seatsurge/values-prod\.yaml''']
-regexes = ['''encryptedPostgresPassword: Ag[A-Za-z0-9+/=]+''']
+description = "Reviewed false positives"
+regexTarget = "line"
+regexes = [
+  # SealedSecret ciphertext is encrypted with the cluster's public key; only the cluster can decrypt it.
+  '''encryptedPostgresPassword: Ag[A-Za-z0-9+/=]+''',
+  # Name of the key inside a Kubernetes Secret, not a password value.
+  '''passwordKey\s*=\s*"admin-password"''',
+]
