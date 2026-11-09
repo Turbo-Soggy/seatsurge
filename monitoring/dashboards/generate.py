@@ -147,5 +147,6 @@ dashboard = {
     "panels": panels,
 }
 
-json.dump(dashboard, open(sys.argv[1], "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(dashboard, f, indent=2, ensure_ascii=False)
 print(f"wrote {len(panels)} panels")
