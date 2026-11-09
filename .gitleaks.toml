@@ -1,0 +1,9 @@
+title = "SeatSurge gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "SealedSecret ciphertext is encrypted with the cluster key and safe to commit"
+paths = ['''deploy/helm/seatsurge/values-prod\.yaml''']
+regexes = ['''encryptedPostgresPassword: Ag[A-Za-z0-9+/=]+''']
