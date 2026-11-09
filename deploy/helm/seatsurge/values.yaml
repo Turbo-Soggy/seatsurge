@@ -67,6 +67,7 @@ components:
 
 # Non-secret application configuration (rendered into a ConfigMap).
 config:
+  # Seat-hold policy. The web UI reads both values from GET /events/{id}, so tuning them needs no front-end change.
   holdTtlSeconds: 120
   maxSeatsPerHold: 6
   paymentFailureRate: "0.02"

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SeatMap } from './components/SeatMap';
 import { TicketStub } from './components/TicketStub';
 import { ApiError, api, sessionId } from './lib/api';
-import { formatCountdown, formatINR, toggleSeat } from './lib/seats';
+import { formatCountdown, formatDuration, formatINR, toggleSeat } from './lib/seats';
 import type { Availability, Hold, Order, SalesStats, Venue } from './lib/types';
 
-const MAX_SEATS = 6;
+const DEFAULT_MAX_SEATS = 6;
+const DEFAULT_HOLD_SECONDS = 120;
 const POLL_MS = 1500;
 const WEB_VERSION = import.meta.env.VITE_APP_VERSION ?? 'dev';
 
@@ -127,6 +128,8 @@ export default function App() {
     return () => clearTimeout(t);
   }, [hold, push]);
 
+  const maxSeats = venue?.hold_policy?.max_seats ?? DEFAULT_MAX_SEATS;
+  const holdTtl = venue?.hold_policy?.ttl_seconds ?? DEFAULT_HOLD_SECONDS;
   const seatIndex = useMemo(() => new Map(venue?.seats.map((s) => [s.id, s]) ?? []), [venue]);
   const selectedSeats = selected.map((id) => seatIndex.get(id)).filter((s) => s !== undefined);
   const selectedTotal = selectedSeats.reduce((sum, s) => sum + s.price, 0);
@@ -134,11 +137,11 @@ export default function App() {
   const onToggle = useCallback(
     (id: string) =>
       setSelected((s) => {
-        const next = toggleSeat(s, id, MAX_SEATS);
-        if (next.length === s.length && !s.includes(id)) push('info', `You can pick up to ${MAX_SEATS} seats`);
+        const next = toggleSeat(s, id, maxSeats);
+        if (next.length === s.length && !s.includes(id)) push('info', `You can pick up to ${maxSeats} seats`);
         return next;
       }),
-    [push],
+    [push, maxSeats],
   );
 
   async function onHold() {
@@ -315,7 +318,7 @@ export default function App() {
             <div className="selection">
               <h2>Your seats</h2>
               <p className="muted">
-                Tap up to {MAX_SEATS} seats on the map. Seats are locked to you for 2 minutes once held.
+                Tap up to {maxSeats} seats on the map. Seats are locked to you for {formatDuration(holdTtl)} once held.
               </p>
               {selectedSeats.length === 0 ? (
                 <div className="empty empty--small">No seats picked yet</div>

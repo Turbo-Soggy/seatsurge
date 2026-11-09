@@ -27,6 +27,7 @@ export interface Venue {
   stage: { x: number; y: number; width: number; height: number };
   tiers: Tier[];
   seats: Seat[];
+  hold_policy: { ttl_seconds: number; max_seats: number };
 }
 
 export interface Availability {

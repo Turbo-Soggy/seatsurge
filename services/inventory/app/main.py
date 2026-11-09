@@ -91,7 +91,13 @@ def create_app(settings: Settings | None = None, redis: Redis | None = None) -> 
     @app.get("/api/inventory/events/{event_id}")
     async def get_event(event_id: str):
         require_event(event_id)
-        return venue_payload()
+        return {
+            **venue_payload(),
+            "hold_policy": {
+                "ttl_seconds": settings.hold_ttl_seconds,
+                "max_seats": settings.max_seats_per_hold,
+            },
+        }
 
     @app.get("/api/inventory/events/{event_id}/availability")
     async def availability(event_id: str, request: Request):

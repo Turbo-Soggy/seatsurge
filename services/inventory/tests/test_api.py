@@ -14,6 +14,12 @@ def test_health_and_version(client):
     assert client.get("/api/inventory/version").json()["version"] == "test"
 
 
+def test_event_publishes_hold_policy(client):
+    body = client.get("/api/inventory/events/neon-atlas-blr").json()
+    assert body["hold_policy"] == {"ttl_seconds": 60, "max_seats": 4}
+    assert len(body["seats"]) == 1004
+
+
 def test_unknown_event_is_404(client):
     assert client.get("/api/inventory/events/nope").status_code == 404
 

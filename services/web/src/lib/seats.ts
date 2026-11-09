@@ -34,6 +34,15 @@ export function formatINR(amount: number): string {
 }
 
 /** Seconds → "m:ss". Negative values clamp to 0:00. */
+/** Human wording for a hold duration: 120 -> "2 minutes", 90 -> "90 seconds". */
+export function formatDuration(seconds: number): string {
+  if (seconds % 60 === 0) {
+    const m = seconds / 60;
+    return `${m} minute${m === 1 ? '' : 's'}`;
+  }
+  return `${seconds} seconds`;
+}
+
 export function formatCountdown(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
