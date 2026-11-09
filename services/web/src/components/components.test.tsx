@@ -19,6 +19,7 @@ const venue: Venue = {
     { id: 'FL1-A2', section: 'FL1', tier: 'FL', row: 'A', number: 2, x: 520, y: 200, price: 7999 },
     { id: 'FL1-A3', section: 'FL1', tier: 'FL', row: 'A', number: 3, x: 540, y: 200, price: 7999 },
   ],
+  hold_policy: { ttl_seconds: 120, max_seats: 6 },
 };
 
 const none = new Set<string>();

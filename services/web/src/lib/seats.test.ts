@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatINR, seatStatus, ticketPattern, toggleSeat } from './seats';
+import { formatCountdown, formatDuration, formatINR, seatStatus, ticketPattern, toggleSeat } from './seats';
 
 const empty = new Set<string>();
 
@@ -37,6 +37,9 @@ describe('formatting', () => {
     expect(formatCountdown(125)).toBe('2:05');
     expect(formatCountdown(9.9)).toBe('0:09');
     expect(formatCountdown(-3)).toBe('0:00');
+    expect(formatDuration(120)).toBe('2 minutes');
+    expect(formatDuration(60)).toBe('1 minute');
+    expect(formatDuration(90)).toBe('90 seconds');
   });
 });
 
