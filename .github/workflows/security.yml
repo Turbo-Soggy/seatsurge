@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Checkov — Terraform, Kubernetes (Helm), Dockerfiles, GitHub Actions
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@45edc9d8856b664db2ec251f5f8632361f0a67aa # v12.3139.0
         with:
           directory: .
           framework: terraform,helm,dockerfile,github_actions

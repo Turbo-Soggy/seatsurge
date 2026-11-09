@@ -101,7 +101,7 @@ jobs:
             docker run --rm -i -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml" hadolint/hadolint:v2.12.0 < "$f"
             echo "::endgroup::"
           done
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Helm lint + render every environment
         run: |
           for env in dev staging prod; do
@@ -114,7 +114,7 @@ jobs:
         with:
           name: helm-chart
           path: dist/*.tgz
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - name: Terraform fmt + validate
         run: |
           terraform fmt -check -recursive infra/terraform
@@ -142,15 +142,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lowercase image prefix
         run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/seatsurge-${{ matrix.service }}" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         if: github.event_name != 'pull_request'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.IMAGE }}
           tags: |
@@ -161,7 +161,7 @@ jobs:
       - name: Version string
         run: echo "APP_VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('sha-{0}', github.sha) }}" | cut -c1-24 >> "$GITHUB_ENV"
       - name: Build (multi-stage, layer cache)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: services/${{ matrix.service }}
           load: true
@@ -191,7 +191,7 @@ jobs:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: trivy-${{ matrix.service }}
       - name: SBOM (SPDX)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: ${{ env.IMAGE }}:scan
           format: spdx-json
@@ -203,7 +203,7 @@ jobs:
           path: sbom-${{ matrix.service }}.spdx.json
       - name: Push to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: services/${{ matrix.service }}
           push: true
