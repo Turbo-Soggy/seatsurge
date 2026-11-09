@@ -128,15 +128,27 @@ docker compose up --build
 
 ## Results
 
-<img src="docs/screenshots/grafana-ticket-drop.png" alt="Grafana dashboard during a ticket drop" width="900">
+**Release v1.1.0 was rolled out to production while 150 virtual fans were buying tickets.**
+The shaded band in Grafana is the rollout; traffic and checkouts peak inside it.
 
-| Load test (k6, 150 virtual fans, 3.5 min) | Result |
+<img src="docs/screenshots/grafana-ticket-drop.png" alt="Grafana dashboard during the v1.1.0 rolling update under load" width="900">
+
+| Rolling update under load (k6, 150 virtual fans) | Result |
 |---|---|
-| Requests served | 13,145 |
-| Error rate | **0.00 %** |
-| p95 latency (all requests) | **15.7 ms** |
-| Event outcome | Sold out (1,004 seats), zero double-sold |
+| Requests during the rollout window | 14,330 |
+| Failed requests | **0 (0.00 %)** |
+| Version probes every 0.5 s | 476 / 476 HTTP 200 while versions switched `sha-cc5532e` → `sha-f6025b4` |
+| Latency avg / p95 | 14.4 ms / **23.5 ms** |
+| Outcome | Sold out: 1,004 seats, ₹41,18,996, 679 collisions rejected with 409, zero double-sold |
 | Autoscaling | inventory **2 → 10 pods** within ~60 s, back to 2 afterwards |
+| Delivery | commit → staging verified in **5 min 39 s**; production in 83 s after approval; `helm rollback` in ~15 s |
+
+| Hold | Ticket |
+|---|---|
+| <img src="docs/screenshots/app-hold-countdown.png" alt="Seats held with a 90-second countdown" width="440"> | <img src="docs/screenshots/app-ticket.png" alt="Ticket stub after payment" width="440"> |
+
+The full write-up is in [`report/SeatSurge-Report.pdf`](report/SeatSurge-Report.pdf) (also `.docx`), with
+slides in [`report/SeatSurge-Slides.pptx`](report/SeatSurge-Slides.pptx).
 
 ## Repository layout
 
