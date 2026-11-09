@@ -10,7 +10,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR/develop runs are cancelled; a release on main is never cancelled mid-deploy.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -222,3 +223,15 @@ jobs:
             echo "$TAGS"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Stage 3 — continuous delivery (main only): dev -> staging -> approval -> prod
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: CD
+    needs: images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/cd.yml
