@@ -43,7 +43,7 @@ jobs:
         if: always()
         run: |
           echo "### inventory coverage: $(coverage report --format=total)% lines" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-inventory
@@ -75,14 +75,14 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ matrix.service }}
           path: |
             services/${{ matrix.service }}/junit.xml
             services/${{ matrix.service }}/coverage/cobertura-coverage.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.service == 'web'
         with:
           name: web-dist
@@ -111,7 +111,7 @@ jobs:
           done
       - name: Package Helm chart
         run: helm package deploy/helm/seatsurge -d dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: helm-chart
           path: dist/*.tgz
@@ -200,7 +200,7 @@ jobs:
           format: spdx-json
           output-file: sbom-${{ matrix.service }}.spdx.json
           upload-artifact: false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ matrix.service }}
           path: sbom-${{ matrix.service }}.spdx.json
