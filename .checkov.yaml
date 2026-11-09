@@ -1,0 +1,8 @@
+# Checkov reports to the GitHub Security tab. Findings are triaged there; the
+# accepted risks below are documented in docs/security.md.
+soft-fail: true
+compact: true
+skip-check:
+  - CKV_K8S_43   # image digests: we pin immutable sha-* tags produced by CI instead
+  - CKV_K8S_35   # secrets as env vars: the DB URL is assembled from a Secret at runtime
+  - CKV_TF_1     # module source commit hashes: no external modules are used

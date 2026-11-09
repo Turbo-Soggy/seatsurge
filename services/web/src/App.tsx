@@ -6,7 +6,7 @@ import { formatCountdown, formatDuration, formatINR, toggleSeat } from './lib/se
 import type { Availability, Hold, Order, SalesStats, Venue } from './lib/types';
 
 const DEFAULT_MAX_SEATS = 6;
-const DEFAULT_HOLD_SECONDS = 120;
+const DEFAULT_HOLD_SECONDS = 90;
 const POLL_MS = 1500;
 const WEB_VERSION = import.meta.env.VITE_APP_VERSION ?? 'dev';
 
@@ -45,7 +45,7 @@ export default function App() {
   const [online, setOnline] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
   const [hold, setHold] = useState<Hold | null>(null);
-  const [holdSeconds, setHoldSeconds] = useState(120);
+  const [holdSeconds, setHoldSeconds] = useState(90);
   const [order, setOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');

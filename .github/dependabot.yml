@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/inventory
+    schedule: { interval: weekly }
+    target-branch: develop
+    labels: [dependencies, inventory]
+  - package-ecosystem: npm
+    directory: /services/checkout
+    schedule: { interval: weekly }
+    target-branch: develop
+    labels: [dependencies, checkout]
+    groups:
+      dev-tooling: { dependency-type: development }
+  - package-ecosystem: npm
+    directory: /services/web
+    schedule: { interval: weekly }
+    target-branch: develop
+    labels: [dependencies, web]
+    groups:
+      dev-tooling: { dependency-type: development }
+  - package-ecosystem: docker
+    directories: [/services/web, /services/inventory, /services/checkout]
+    schedule: { interval: weekly }
+    target-branch: develop
+    labels: [dependencies, docker]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    target-branch: develop
+    labels: [dependencies, ci]
+  - package-ecosystem: terraform
+    directories: [/infra/terraform/local, /infra/terraform/azure]
+    schedule: { interval: monthly }
+    target-branch: develop
+    labels: [dependencies, infra]
