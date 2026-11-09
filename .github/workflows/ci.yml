@@ -40,7 +40,8 @@ jobs:
         run: pytest
       - name: Coverage summary
         if: always()
-        run: echo "### inventory coverage: $(coverage report --format=total)% lines" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "### inventory coverage: $(coverage report --format=total)% lines" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -91,6 +92,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Lint workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: Lint Dockerfiles (hadolint)
         run: |
           for f in services/*/Dockerfile; do

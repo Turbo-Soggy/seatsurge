@@ -1,0 +1,177 @@
+name: CD
+
+# Multi-stage delivery: dev (ephemeral cluster) -> staging -> production (manual approval).
+# Runs only after CI succeeds on main, or manually. Never on pull requests or forks,
+# because the staging/prod stages run on a self-hosted runner.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g. sha-abc1234 or 1.1.0). Default: current commit."
+        required: false
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  prepare:
+    name: Resolve release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.r.outputs.sha }}
+      tag: ${{ steps.r.outputs.tag }}
+      registry: ${{ steps.r.outputs.registry }}
+    steps:
+      - id: r
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          TAG="${{ inputs.image_tag }}"
+          [ -z "$TAG" ] && TAG="sha-${SHA:0:7}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "registry=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "### Releasing \`$TAG\` (commit ${SHA:0:7})" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # DEV — throwaway kind cluster on a GitHub-hosted runner
+  # ---------------------------------------------------------------------------
+  deploy-dev:
+    name: Deploy → dev (ephemeral)
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      REGISTRY: ${{ needs.prepare.outputs.registry }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.prepare.outputs.sha }}" }
+      - uses: helm/kind-action@v1
+        with: { cluster_name: dev }
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load release images into the cluster
+        run: |
+          for s in web inventory checkout; do
+            docker pull "$REGISTRY/seatsurge-$s:$TAG"
+            kind load docker-image "$REGISTRY/seatsurge-$s:$TAG" --name dev
+          done
+      - name: Helm install
+        run: |
+          helm upgrade --install seatsurge deploy/helm/seatsurge \
+            -n seatsurge-dev --create-namespace \
+            -f deploy/helm/seatsurge/values-dev.yaml \
+            --set global.imageRegistry="$REGISTRY" --set global.imageTag="$TAG" \
+            --wait --timeout 5m
+      - name: helm test
+        run: helm test seatsurge -n seatsurge-dev --logs
+      - name: End-to-end booking test
+        run: |
+          kubectl -n seatsurge-dev port-forward svc/seatsurge-web 8080:8080 &
+          sleep 3
+          node scripts/smoke-test.mjs http://127.0.0.1:8080
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get all -n seatsurge-dev
+          kubectl describe pods -n seatsurge-dev | tail -80
+          kubectl logs -n seatsurge-dev -l app.kubernetes.io/name=seatsurge --tail=50 --all-containers
+
+  # ---------------------------------------------------------------------------
+  # STAGING — long-lived cluster (self-hosted runner next to the kind cluster)
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy → staging
+    needs: [prepare, deploy-dev]
+    runs-on: [self-hosted, seatsurge]
+    environment:
+      name: staging
+      url: http://staging.seatsurge.localhost
+    defaults:
+      run:
+        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -eo pipefail {0}'
+    env:
+      REGISTRY: ${{ needs.prepare.outputs.registry }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.prepare.outputs.sha }}" }
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load images
+        run: ./scripts/load-images.sh seatsurge "$REGISTRY" "$TAG"
+      - name: Helm upgrade (atomic = auto-rollback on failure)
+        run: |
+          helm upgrade --install seatsurge deploy/helm/seatsurge -n seatsurge-staging \
+            -f deploy/helm/seatsurge/values-staging.yaml \
+            --set global.imageRegistry="$REGISTRY" --set global.imageTag="$TAG" \
+            --atomic --wait --timeout 6m
+          kubectl -n seatsurge-staging rollout status deploy --timeout 3m
+      - name: helm test + end-to-end booking
+        run: |
+          helm test seatsurge -n seatsurge-staging --logs
+          node scripts/smoke-test.mjs http://127.0.0.1 staging.seatsurge.localhost
+
+  # ---------------------------------------------------------------------------
+  # PRODUCTION — gated by a required reviewer on the "production" environment
+  # ---------------------------------------------------------------------------
+  deploy-prod:
+    name: Deploy → production
+    needs: [prepare, deploy-staging]
+    runs-on: [self-hosted, seatsurge]
+    environment:
+      name: production
+      url: http://seatsurge.localhost
+    defaults:
+      run:
+        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -eo pipefail {0}'
+    env:
+      REGISTRY: ${{ needs.prepare.outputs.registry }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.prepare.outputs.sha }}" }
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load images
+        run: ./scripts/load-images.sh seatsurge "$REGISTRY" "$TAG"
+      - name: Helm upgrade (rolling update, atomic)
+        run: |
+          helm upgrade --install seatsurge deploy/helm/seatsurge -n seatsurge-prod \
+            -f deploy/helm/seatsurge/values-prod.yaml \
+            --set global.imageRegistry="$REGISTRY" --set global.imageTag="$TAG" \
+            --atomic --wait --timeout 8m
+          kubectl -n seatsurge-prod rollout status deploy --timeout 5m
+      - name: helm test + end-to-end booking
+        run: |
+          helm test seatsurge -n seatsurge-prod --logs
+          node scripts/smoke-test.mjs http://127.0.0.1 seatsurge.localhost
+      - name: Release summary
+        run: |
+          {
+            echo "### 🚀 Production now runs \`$TAG\`"
+            echo '```'
+            helm history seatsurge -n seatsurge-prod --max 5
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
