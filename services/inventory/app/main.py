@@ -156,7 +156,8 @@ def create_app(settings: Settings | None = None, redis: Redis | None = None) -> 
         except HoldExpiredError as exc:
             raise HTTPException(410, "hold expired") from exc
         SEATS_SOLD.inc(len(info["seat_ids"]))
-        log.info(f"sold {len(info['seat_ids'])} seats hold={hold_id}")
+        # Log the server-generated id from Redis, never the raw path parameter (log injection).
+        log.info("sold %d seats hold=%s", len(info["seat_ids"]), info["hold_id"])
         return _hold_view(info)
 
     @app.post("/api/inventory/events/{event_id}/reset", status_code=204)
