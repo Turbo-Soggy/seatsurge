@@ -44,7 +44,7 @@ export default function App() {
   const [online, setOnline] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
   const [hold, setHold] = useState<Hold | null>(null);
-  const [holdSeconds, setHoldSeconds] = useState(120);
+  const [holdSeconds, setHoldSeconds] = useState(90);
   const [order, setOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
@@ -315,7 +315,7 @@ export default function App() {
             <div className="selection">
               <h2>Your seats</h2>
               <p className="muted">
-                Tap up to {MAX_SEATS} seats on the map. Seats are locked to you for 2 minutes once held.
+                Tap up to {MAX_SEATS} seats on the map. Seats are locked to you for 90 seconds once held.
               </p>
               {selectedSeats.length === 0 ? (
                 <div className="empty empty--small">No seats picked yet</div>

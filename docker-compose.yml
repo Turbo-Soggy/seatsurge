@@ -20,7 +20,7 @@ services:
     image: seatsurge-inventory:local
     environment:
       REDIS_URL: redis://redis:6379/0
-      HOLD_TTL_SECONDS: "120"
+      HOLD_TTL_SECONDS: "90"
       ALLOW_RESET: "true"
     ports: ["8000:8000"]
     depends_on:
