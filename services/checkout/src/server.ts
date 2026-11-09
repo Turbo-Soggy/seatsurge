@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { HttpInventoryClient, MockPaymentGateway } from './clients.js';
 import { loadConfig } from './config.js';
 import { PgOrderRepository } from './db.js';
+import { registerBusinessGauges } from './metrics.js';
 
 const logger = pino({ base: { service: 'checkout' } });
 
@@ -27,7 +28,9 @@ async function main(): Promise<void> {
     payments: new MockPaymentGateway(config.paymentFailureRate),
     version: config.appVersion,
     logger,
+    allowReset: config.allowReset,
   });
+  registerBusinessGauges(orders);
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port, version: config.appVersion }, 'checkout listening');
   });

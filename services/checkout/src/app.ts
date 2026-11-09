@@ -17,6 +17,8 @@ export interface AppDeps {
   payments: PaymentGateway;
   version: string;
   logger?: Logger;
+  /** Enables POST /events/:id/reset (dev, staging and the load-test demo only). */
+  allowReset?: boolean;
 }
 
 const OrderRequest = z.object({
@@ -134,6 +136,18 @@ export function createApp(deps: AppDeps): express.Express {
 
   app.get('/api/checkout/events/:eventId/stats', async (req, res) => {
     res.json(await deps.orders.stats(req.params.eventId));
+  });
+
+  // Wipes an event's orders so a load test can start from a clean slate.
+  // Must be called together with the inventory reset, or sold seats and orders disagree.
+  app.post('/api/checkout/events/:eventId/reset', async (req, res) => {
+    if (!deps.allowReset) {
+      res.status(403).json({ error: 'reset is disabled in this environment' });
+      return;
+    }
+    const removed = await deps.orders.resetEvent(req.params.eventId);
+    req.log?.warn({ eventId: req.params.eventId, removed }, 'event orders reset');
+    res.status(204).end();
   });
 
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
