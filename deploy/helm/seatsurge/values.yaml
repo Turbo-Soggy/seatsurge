@@ -67,7 +67,7 @@ components:
 
 # Non-secret application configuration (rendered into a ConfigMap).
 config:
-  holdTtlSeconds: 120
+  holdTtlSeconds: 90
   maxSeatsPerHold: 6
   paymentFailureRate: "0.02"
   allowReset: false
