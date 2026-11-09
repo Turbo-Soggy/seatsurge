@@ -43,10 +43,11 @@ describe('loadConfig', () => {
     const cfg = loadConfig({});
     expect(cfg.port).toBe(3000);
     expect(cfg.paymentFailureRate).toBe(0.02);
+    expect(cfg.allowReset).toBe(false);
   });
 
   it('reads overrides from the environment', () => {
-    const cfg = loadConfig({ PORT: '8080', PAYMENT_FAILURE_RATE: '0.5', APP_VERSION: '1.2.3' });
-    expect(cfg).toMatchObject({ port: 8080, paymentFailureRate: 0.5, appVersion: '1.2.3' });
+    const cfg = loadConfig({ PORT: '8080', PAYMENT_FAILURE_RATE: '0.5', APP_VERSION: '1.2.3', ALLOW_RESET: 'TRUE' });
+    expect(cfg).toMatchObject({ port: 8080, paymentFailureRate: 0.5, appVersion: '1.2.3', allowReset: true });
   });
 });

@@ -4,6 +4,7 @@ import {
   type NewOrder,
   type Order,
   type OrderRepository,
+  type EventSales,
   type SalesStats,
 } from './types.js';
 
@@ -114,5 +115,20 @@ export class PgOrderRepository implements OrderRepository {
       [eventId],
     );
     return rows[0];
+  }
+
+  async salesByEvent(): Promise<EventSales[]> {
+    const { rows } = await this.pool.query(
+      `SELECT o.event_id AS "eventId", count(DISTINCT o.code)::int AS orders,
+              count(s.seat_id)::int AS seats, coalesce(sum(s.price), 0)::int AS revenue
+       FROM orders o JOIN order_seats s ON s.order_code = o.code GROUP BY o.event_id`,
+    );
+    return rows;
+  }
+
+  async resetEvent(eventId: string): Promise<number> {
+    // order_seats rows go with their order (ON DELETE CASCADE).
+    const { rowCount } = await this.pool.query('DELETE FROM orders WHERE event_id = $1', [eventId]);
+    return rowCount ?? 0;
   }
 }

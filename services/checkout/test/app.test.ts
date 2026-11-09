@@ -1,7 +1,9 @@
+import { Registry } from 'prom-client';
 import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { confirmationCode, createApp } from '../src/app.js';
 import { MockPaymentGateway } from '../src/clients.js';
+import { registerBusinessGauges } from '../src/metrics.js';
 import {
   SeatAlreadySoldError,
   type Hold,
@@ -46,6 +48,27 @@ class MemoryOrders implements OrderRepository {
   async stats() {
     const all = [...this.orders.values()];
     return { orders: all.length, seats: this.soldSeats.size, revenue: all.reduce((a, o) => a + o.total, 0) };
+  }
+  async salesByEvent() {
+    const byEvent = new Map<string, { eventId: string; orders: number; seats: number; revenue: number }>();
+    for (const o of this.orders.values()) {
+      const e = byEvent.get(o.eventId) ?? { eventId: o.eventId, orders: 0, seats: 0, revenue: 0 };
+      e.orders += 1;
+      e.seats += o.seats.length;
+      e.revenue += o.total;
+      byEvent.set(o.eventId, e);
+    }
+    return [...byEvent.values()];
+  }
+  async resetEvent(eventId: string) {
+    let removed = 0;
+    for (const [code, o] of this.orders) {
+      if (o.eventId !== eventId) continue;
+      o.seats.forEach((s) => this.soldSeats.delete(s.id));
+      this.orders.delete(code);
+      removed += 1;
+    }
+    return removed;
   }
   async ping() {
     if (!this.healthy) throw new Error('db down');
@@ -134,6 +157,26 @@ describe('checkout API', () => {
     const metrics = await request(app()).get('/metrics').expect(200);
     expect(metrics.text).toContain('seatsurge_orders_total');
     expect(metrics.text).toContain('seatsurge_revenue_inr_total');
+  });
+
+  it('refuses to reset an event unless reset is enabled', async () => {
+    await request(app()).post('/api/checkout/orders').send(body).expect(201);
+    await request(app()).post('/api/checkout/events/neon-atlas-blr/reset').expect(403);
+    expect(orders.orders.size).toBe(1);
+
+    const resettable = createApp({ orders, inventory, payments: approve, version: 'test', allowReset: true });
+    await request(resettable).post('/api/checkout/events/neon-atlas-blr/reset').expect(204);
+    expect(orders.orders.size).toBe(0);
+    expect(orders.soldSeats.size).toBe(0);
+  });
+
+  it('exports box office gauges computed from the orders store', async () => {
+    await request(app()).post('/api/checkout/orders').send(body).expect(201);
+    const register = new Registry();
+    registerBusinessGauges(orders, register);
+    const text = await register.metrics();
+    expect(text).toContain('seatsurge_box_office_inr{event="neon-atlas-blr"} 15998');
+    expect(text).toContain('seatsurge_tickets_sold{event="neon-atlas-blr"} 2');
   });
 
   it('returns 404 for unknown orders', async () => {

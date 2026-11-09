@@ -4,6 +4,8 @@ export interface Config {
   inventoryUrl: string;
   paymentFailureRate: number;
   appVersion: string;
+  /** Test/demo environments only: lets the load test wipe an event's orders. */
+  allowReset: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -13,5 +15,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     inventoryUrl: env.INVENTORY_URL ?? 'http://localhost:8000',
     paymentFailureRate: Number(env.PAYMENT_FAILURE_RATE ?? 0.02),
     appVersion: env.APP_VERSION ?? 'dev',
+    allowReset: (env.ALLOW_RESET ?? 'false').toLowerCase() === 'true',
   };
 }
