@@ -13,7 +13,7 @@ COPY . .
 RUN npm run lint && npm test && npm run build
 
 # ---- Stage 3: unprivileged nginx serving the SPA (~20 MB) ----
-FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 ARG APP_VERSION=dev
 LABEL org.opencontainers.image.title="seatsurge-web" \
       org.opencontainers.image.description="SeatSurge web front-end" \
