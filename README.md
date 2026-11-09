@@ -5,7 +5,7 @@
 ### A flash-sale concert-ticketing platform, and the DevOps pipeline that keeps it standing when 10,000 fans hit "buy" at once.
 
 [![CI](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/ci.yml/badge.svg)](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/ci.yml)
-[![CD](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/cd.yml/badge.svg)](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/cd.yml)
+[![production](https://img.shields.io/github/deployments/Turbo-Soggy/seatsurge/production?label=production&logo=kubernetes)](https://github.com/Turbo-Soggy/seatsurge/deployments/production)
 [![CodeQL](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/codeql.yml/badge.svg)](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/codeql.yml)
 [![Security](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/security.yml/badge.svg)](https://github.com/Turbo-Soggy/seatsurge/actions/workflows/security.yml)
 
