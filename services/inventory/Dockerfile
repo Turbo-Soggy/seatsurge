@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---- Stage 1: build a self-contained virtualenv with only runtime deps ----
-FROM python:3.13-slim AS builder
+FROM python:3.15-slim AS builder
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /build
 RUN python -m venv /opt/venv
@@ -17,7 +17,7 @@ COPY tests ./tests
 RUN ruff check . && pytest -q
 
 # ---- Stage 3: minimal runtime image, non-root ----
-FROM python:3.13-slim AS runtime
+FROM python:3.15-slim AS runtime
 ARG APP_VERSION=dev
 LABEL org.opencontainers.image.title="seatsurge-inventory" \
       org.opencontainers.image.description="SeatSurge seat inventory & hold service" \
